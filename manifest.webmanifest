@@ -1,0 +1,16 @@
+{
+  "name": "道問 · 灵签排盘起卦",
+  "short_name": "道問",
+  "description": "道家传统文化娱乐：灵签抽签、八字排盘、金钱卦、易经解读",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#26221c",
+  "theme_color": "#3d5a6b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

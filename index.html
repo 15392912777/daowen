@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<!--
+  道問 · 手机App风格版（纯前端，双击即用）
+  ------------------------------------------------------------
+  与「道问-算命.html」共用同一套签文/卦表/详批逻辑（脚本由生成器自动注入）。
+  本文件是手机App壳：顶部状态栏+应用栏，底部tab栏，居中手机样式。
+  修改文案/卡密/收款码：仍按主文件头部注释，改 const SIGNS / BAIHUA /
+  GUACI / DETAIL_TEXT / UNLOCK_CODES / QR_WECHAT / QR_ALIPAY。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>道問</title>
+<style>
+  :root{
+    --ink:#1c1a17; --ink-soft:#3a362f;
+    --paper:#e8dfc8; --paper-deep:#d8cba8;
+    --qing:#3d5a6b; --qing-light:#5d7d8f;
+    --gold:#a8823c; --red:#8c3a2b;
+    --font-kai:"Kaiti SC","STKaiti","KaiTi","Noto Serif SC","Songti SC",serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:var(--font-kai); color:var(--ink);
+    background:#26221c;
+    background-image:radial-gradient(700px 400px at 50% -10%, rgba(61,90,107,.35), transparent 60%);
+  }
+  /* 手机壳 */
+  .phone{
+    position:relative; max-width:430px; margin:0 auto; min-height:100vh;
+    display:flex; flex-direction:column; overflow:hidden;
+    background:
+      radial-gradient(600px 300px at 90% -5%, rgba(61,90,107,.14), transparent 60%),
+      linear-gradient(160deg,#efe8d5,#d9cdab);
+    box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 20px 60px rgba(0,0,0,.5);
+  }
+  /* 状态栏（装饰） */
+  .statusbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 18px 4px; font-size:13px; color:var(--ink-soft); letter-spacing:1px;
+    font-family:-apple-system,sans-serif;
+  }
+  .statusbar .dots{letter-spacing:2px}
+  /* 应用栏 */
+  .appbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 16px 12px; color:var(--paper);
+    background:linear-gradient(180deg,var(--qing),#2c4250);
+  }
+  .appbar .brand{font-size:22px; letter-spacing:8px; font-weight:700}
+  .appbar .tag{font-size:12px; letter-spacing:2px; opacity:.85}
+  .appbar .taiji-s{width:26px;height:26px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #e8dfc8 0 32%, #1c1a17 32% 100%);
+    border:1.5px solid #e8dfc8; animation:spin 20s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .content{flex:1; padding:12px 12px 92px; overflow-y:auto}
+
+  /* 免责声明 */
+  .disclaimer{
+    padding:8px 10px; border:1px solid var(--red); border-radius:6px;
+    background:rgba(140,58,43,.08); color:var(--red); font-size:12.5px;
+    letter-spacing:.5px; text-align:center; line-height:1.55; margin-bottom:12px;
+  }
+  .daily-hint{text-align:center;font-size:13px;color:var(--gold);letter-spacing:1px;margin:2px 0 10px;min-height:16px}
+
+  /* 页签页面 */
+  .page{display:none;animation:fadeIn .5s ease}
+  .page.show{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  .slip{
+    background:linear-gradient(180deg, rgba(232,223,200,.92), rgba(216,203,168,.92));
+    border:1px solid rgba(60,50,30,.25); border-radius:6px;
+    box-shadow:0 6px 18px rgba(28,26,23,.16); padding:18px 15px; position:relative;
+  }
+  .slip h2{font-size:19px;letter-spacing:6px;color:var(--qing);text-align:center;margin-bottom:10px}
+  .hint{font-size:12.5px;color:var(--ink-soft);text-align:center;line-height:1.7;margin-bottom:12px}
+  .btn{
+    display:block;margin:14px auto 0;font-family:inherit;font-size:17px;letter-spacing:6px;text-indent:6px;
+    padding:11px 30px;border:none;border-radius:4px;cursor:pointer;color:var(--paper);
+    background:linear-gradient(180deg,var(--qing),#2c4250);box-shadow:0 4px 12px rgba(44,66,80,.35);
+  }
+  .btn:active{transform:scale(.96)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold),#84642c)}
+
+  /* 灵签 */
+  .stick-shake{font-size:46px;display:inline-block}
+  .shake-anim{animation:shake .5s ease-in-out infinite}
+  @keyframes shake{0%,100%{transform:rotate(-14deg) translateY(0)}50%{transform:rotate(14deg) translateY(-8px)}}
+  #qianResult{display:none;text-align:center}
+  .qian-no{font-size:19px;color:var(--red);letter-spacing:3px;margin:10px 0 3px}
+  .qian-level{display:inline-block;font-size:13px;letter-spacing:3px;padding:2px 12px;border:1px solid;border-radius:3px;margin:5px 0}
+  .lv-上{color:#2f6b39;border-color:#2f6b39;background:rgba(47,107,57,.08)}
+  .lv-中{color:var(--gold);border-color:var(--gold);background:rgba(168,130,60,.08)}
+  .lv-下{color:var(--red);border-color:var(--red);background:rgba(140,58,43,.08)}
+  .poem{font-size:17px;line-height:2;letter-spacing:3px;margin:12px 0}
+  .poem div{opacity:0;animation:linein .7s ease forwards}
+  .poem div:nth-child(2){animation-delay:.25s}.poem div:nth-child(3){animation-delay:.5s}.poem div:nth-child(4){animation-delay:.75s}
+  @keyframes linein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .jie{font-size:14px;line-height:1.85;color:var(--ink-soft);text-align:justify;border-top:1px dashed rgba(60,50,30,.35);padding-top:10px;letter-spacing:.5px}
+  .jie b{color:var(--qing)}
+
+  /* 八字 */
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:8px}
+  .form label{font-size:12px;color:var(--qing);letter-spacing:1px;display:block;margin-bottom:2px}
+  .form select{width:100%;font-family:inherit;font-size:15px;padding:7px;border-radius:4px;border:1.5px solid var(--qing-light);background:rgba(255,252,242,.85);color:var(--ink)}
+  .bazi-table{width:100%;border-collapse:collapse;margin:12px 0;text-align:center}
+  .bazi-table th,.bazi-table td{border:1px solid rgba(60,50,30,.3);padding:6px 3px;font-size:14px}
+  .bazi-table th{background:rgba(61,90,107,.12);color:var(--qing);font-weight:normal;letter-spacing:1px;font-size:12.5px}
+  .pillar-stem{font-size:21px;color:var(--red)} .pillar-branch{font-size:21px;color:var(--qing)}
+  .wx-tag{display:inline-block;font-size:11px;color:var(--ink-soft);margin-left:1px}
+  #baziRead{font-size:13.5px;line-height:1.85;color:var(--ink-soft);text-align:justify;border-top:1px dashed rgba(60,50,30,.35);padding-top:10px;letter-spacing:.5px}
+
+  /* 金钱卦 */
+  .coins{display:flex;justify-content:center;gap:16px;margin:14px 0 6px;height:70px;align-items:center}
+  .coin{width:54px;height:54px;border-radius:50%;font-size:20px;line-height:54px;text-align:center;color:var(--gold);font-weight:bold;
+    background:radial-gradient(circle at 35% 30%, #d9bd7a, #a8823c 60%, #7c5f28);
+    box-shadow:inset 0 0 0 4px rgba(124,95,40,.5),0 4px 10px rgba(28,26,23,.3);border:2px solid #6e5322}
+  .coins.rolling .coin{animation:coinRoll .55s ease-in-out infinite}
+  @keyframes coinRoll{0%,100%{transform:translateY(0) rotate(-16deg)}50%{transform:translateY(-22px) rotate(16deg)}}
+  .toss-log{font-size:12px;color:var(--qing);text-align:center;letter-spacing:1px;margin-bottom:4px}
+  .lines{margin:10px auto 4px;max-width:290px}
+  .yao{display:flex;align-items:center;gap:8px;margin:6px 0;animation:linein .5s ease}
+  .yao .bar{flex:1;height:11px;background:var(--ink);border-radius:2px}
+  .yao.yin .barwrap{flex:1;display:flex;justify-content:center;gap:20px}
+  .yao.yin .barwrap .bar{flex:none;width:34%}
+  .yao .tag{font-size:12px;color:var(--qing);width:80px;text-align:right;letter-spacing:1px}
+  .gua-name{text-align:center;font-size:23px;color:var(--red);letter-spacing:4px;margin:10px 0 4px}
+  .gua-ci{text-align:center;font-size:14px;color:var(--ink-soft);letter-spacing:.5px;line-height:1.8}
+
+  /* 易经 */
+  .yi-select{width:100%;font-family:inherit;font-size:15px;padding:8px;border-radius:4px;border:1.5px solid var(--qing-light);background:rgba(255,252,242,.85);color:var(--ink)}
+  .yi-row{display:flex;gap:8px;margin-top:10px}
+  .yi-row .btn{margin:0;flex:1;font-size:15px;letter-spacing:2px;padding:10px 4px}
+
+  /* 付费面板 / 详批 */
+  .pay-panel{display:none;margin-top:12px;padding:14px;border:2px solid var(--gold);border-radius:6px;
+    background:linear-gradient(180deg, rgba(232,223,200,.96), rgba(216,203,168,.96));box-shadow:0 6px 20px rgba(168,130,60,.25)}
+  .pay-panel.show{display:block;animation:fadeIn .4s ease}
+  .pay-title{text-align:center;font-size:15px;color:var(--red);letter-spacing:2px;margin-bottom:5px}
+  .pay-price{text-align:center;font-size:14px;color:var(--gold);letter-spacing:1px;margin-bottom:10px}
+  .pay-price b{font-size:24px;color:var(--red)}
+  .pay-steps{font-size:12.5px;color:var(--ink-soft);line-height:1.85;letter-spacing:.5px;margin-bottom:10px}
+  .pay-steps b{color:var(--qing)}
+  .qr-row{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+  .qr-box{width:110px}
+  .qr-box img{width:110px;height:110px;display:block;border:3px solid var(--qing);border-radius:4px;background:#fff;object-fit:contain}
+  .qr-fallback{width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:2px dashed var(--gold);border-radius:4px;background:rgba(168,130,60,.06);font-size:11px;color:var(--gold);text-align:center;line-height:1.5;padding:6px}
+  .qr-box span{display:block;font-size:12px;color:var(--ink-soft);margin-top:5px;letter-spacing:1px}
+  .code-row{display:flex;gap:8px}
+  .code-row input{flex:1;min-width:0;font-family:inherit;font-size:15px;letter-spacing:2px;padding:8px;border:1.5px solid var(--qing-light);border-radius:4px;background:rgba(255,252,242,.9);color:var(--ink);outline:none;text-align:center}
+  .code-row button{font-family:inherit;font-size:14px;letter-spacing:2px;padding:0 14px;border:none;border-radius:4px;color:var(--paper);background:linear-gradient(180deg,var(--red),#6d2b1f);cursor:pointer}
+  .pay-msg{font-size:12.5px;text-align:center;margin-top:8px;letter-spacing:.5px;min-height:16px}
+  .perma-code{margin-top:10px;border-top:1px dashed rgba(60,50,30,.35);padding-top:8px}
+  .perma-code summary{font-size:12.5px;color:var(--qing);cursor:pointer;letter-spacing:1px;outline:none}
+  .perma-code .code-row{margin-top:8px}
+  .vip-badge{display:none;text-align:center;font-size:12.5px;color:#2f6b39;border:1px solid #2f6b39;border-radius:3px;padding:3px 10px;letter-spacing:1px;margin:10px auto 0;width:fit-content;background:rgba(47,107,57,.08)}
+  .vip-badge.show{display:block}
+  .detail{display:none;margin-top:12px;padding:14px 12px;border:1px dashed var(--gold);border-radius:4px;background:rgba(255,252,242,.6)}
+  .detail.show{display:block;animation:fadeIn .5s ease}
+  .detail h4{font-size:14.5px;color:var(--qing);letter-spacing:2px;margin:10px 0 4px}
+  .detail h4:first-child{margin-top:0}
+  .detail p{font-size:13.5px;line-height:1.85;color:var(--ink-soft);text-align:justify;letter-spacing:.5px}
+  .detail .seal{display:block;text-align:right;font-size:11px;color:var(--red);letter-spacing:1px;margin-top:10px;opacity:.8}
+
+  /* 打赏 */
+  .donate{margin-top:18px;padding:16px 12px;text-align:center;background:linear-gradient(180deg, rgba(232,223,200,.9), rgba(216,203,168,.9));border:1px solid rgba(60,50,30,.25);border-radius:6px}
+  .donate h3{font-size:16px;letter-spacing:4px;color:var(--qing);margin-bottom:4px}
+  .donate p{font-size:12px;color:var(--ink-soft);letter-spacing:.5px;margin-bottom:10px}
+
+  footer{text-align:center;font-size:11px;color:var(--ink-soft);letter-spacing:1px;margin:16px 0 4px;opacity:.7}
+
+  /* 底部 tab 栏 */
+  .tabbar{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:430px; z-index:50;
+    display:flex; background:linear-gradient(180deg, rgba(232,223,200,.98), rgba(216,203,168,.98));
+    border-top:1px solid rgba(60,50,30,.3);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tabbar button{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    font-family:inherit; font-size:11px; letter-spacing:1px; color:var(--ink-soft);
+    background:none; border:none; cursor:pointer; padding:4px 0;
+  }
+  .tabbar button .ic{font-size:20px; line-height:1}
+  .tabbar button.active{color:var(--qing); font-weight:700}
+
+  .toast{
+    position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px);
+    background:rgba(28,26,23,.92); color:var(--paper); font-size:13px; letter-spacing:1px;
+    padding:9px 18px; border-radius:20px; opacity:0; pointer-events:none; z-index:99;
+    transition:opacity .3s ease, transform .3s ease; max-width:86%; text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+<meta name="theme-color" content="#3d5a6b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="道問">
+</head>
+<body>
+<div class="phone">
+
+  <div class="statusbar">
+    <span>9:41</span>
+    <span class="dots">●●●</span>
+    <span>▲ ▮ 🔋</span>
+  </div>
+
+  <div class="appbar">
+    <span class="brand">道 問</span>
+    <span class="tag">靈簽 · 八字 · 金錢卦 · 易經</span>
+    <span class="taiji-s"></span>
+  </div>
+
+  <div class="content">
+    <div class="disclaimer">⚠ <b>本程序僅傳統文化娛樂，不構成命運、決策參考，請勿迷信</b> ⚠</div>
+    <div class="daily-hint" id="dailyHint"></div>
+
+    <!-- 页面一：灵签 -->
+    <section id="page-qian" class="page show">
+      <div class="slip">
+        <h2>搖 簽 問 事</h2>
+        <p class="hint">焚香靜心，默念所求，一簽既出，只問一事。</p>
+        <div id="qianResult">
+          <span id="stick" class="stick-shake">🥢</span>
+          <div id="qianNo" class="qian-no"></div>
+          <span id="qianLevel" class="qian-level"></span>
+          <div id="qianPoem" class="poem"></div>
+          <div id="qianJie" class="jie"></div>
+          <button class="btn gold" id="btnQianPay" onclick="askUnlock('qian')" style="margin-top:12px">查看詳批 · ¥1.99</button>
+          <div class="detail" id="qianDetail"></div>
+        </div>
+        <button class="btn" id="btnQian" onclick="drawQian()">搖 簽</button>
+      </div>
+    </section>
+
+    <!-- 页面二：八字 -->
+    <section id="page-bazi" class="page">
+      <div class="slip">
+        <h2>生 辰 排 盤</h2>
+        <p class="hint">輸入出生年月日時，排出四柱，附娛樂化點評。</p>
+        <div class="form">
+          <div><label>出生年份</label><select id="bYear"></select></div>
+          <div><label>月份</label><select id="bMonth"></select></div>
+          <div><label>日期</label><select id="bDay"></select></div>
+          <div><label>時辰</label><select id="bHour"></select></div>
+        </div>
+        <button class="btn gold" onclick="drawBazi()">排 盤</button>
+        <div id="baziResult" style="display:none">
+          <table class="bazi-table">
+            <tr><th></th><th>年柱</th><th>月柱</th><th>日柱</th><th>時柱</th></tr>
+            <tr id="baziRow"></tr>
+          </table>
+          <div id="baziRead"></div>
+          <button class="btn gold" id="btnBaziPay" onclick="askUnlock('bazi')" style="margin-top:12px">查看詳批 · ¥1.99</button>
+          <div class="detail" id="baziDetail"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 页面三：金钱卦 -->
+    <section id="page-gua" class="page">
+      <div class="slip">
+        <h2>金 錢 起 卦</h2>
+        <p class="hint">連擲六次銅錢，自下而上成卦。</p>
+        <div class="coins" id="coins">
+          <div class="coin">乾</div><div class="coin">乾</div><div class="coin">乾</div>
+        </div>
+        <div class="toss-log" id="tossLog"></div>
+        <div class="lines" id="lines"></div>
+        <div id="guaResult" style="display:none">
+          <div class="gua-name" id="guaName"></div>
+          <div class="gua-ci" id="guaCi"></div>
+        </div>
+        <button class="btn" id="btnGua" onclick="startGua()">擲 幣 起 卦</button>
+      </div>
+    </section>
+
+    <!-- 页面四：易经 -->
+    <section id="page-yi" class="page">
+      <div class="slip">
+        <h2>易 經 觀 卦</h2>
+        <p class="hint">選一卦細看卦象、卦辭與白話解讀。</p>
+        <select class="yi-select" id="yiSelect"></select>
+        <div class="yi-row">
+          <button class="btn" onclick="showYi(document.getElementById('yiSelect').value)">觀 卦</button>
+          <button class="btn gold" onclick="randomYi()">隨 機</button>
+        </div>
+        <div id="yiBox" style="display:none">
+          <div class="gua-name" id="yiName"></div>
+          <div class="lines" id="yiLines"></div>
+          <div class="gua-ci" id="yiCi" style="text-align:left;margin-top:10px"></div>
+          <div class="jie" id="yiHua" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 付费解锁面板 -->
+    <div class="pay-panel" id="payPanel">
+      <div class="pay-title">解 鎖 詳 細 命 理 解 讀</div>
+      <div class="pay-price">每次詳批 <b>¥1.99</b></div>
+      <div class="pay-steps">
+        <b>①</b> 掃下方任一收款碼支付 1.99 元　<b>②</b> 點「已支付」即查看本次詳批
+      </div>
+      <div class="qr-row" style="margin-bottom:10px">
+        <div class="qr-box">
+          <img class="qr-wechat" alt="微信收款码">
+          <div class="qr-fallback" style="display:none">收款码加载失败</div>
+          <span>微信 ¥1.99</span>
+        </div>
+        <div class="qr-box">
+          <img class="qr-alipay" alt="支付宝收款码">
+          <div class="qr-fallback" style="display:none">收款码加载失败</div>
+          <span>支付寶 ¥1.99</span>
+        </div>
+      </div>
+      <button class="btn gold" onclick="paidThisTime()" style="margin:0 auto">已支付 ¥1.99 · 解鎖本次</button>
+      <div class="pay-msg" id="payMsg"></div>
+      <details class="perma-code">
+        <summary>持永久解鎖碼？點此輸入</summary>
+        <div class="code-row">
+          <input id="codeInput" maxlength="16" placeholder="輸入永久卡密" onkeydown="if(event.key==='Enter')doUnlock()">
+          <button onclick="doUnlock()">解 鎖</button>
+        </div>
+      </details>
+    </div>
+    <div class="vip-badge" id="vipBadge">✦ 已永久解鎖詳細命理解讀 ✦</div>
+
+    <!-- 打赏 -->
+    <div class="donate">
+      <h3>賞 個 茶 錢</h3>
+      <p>若此番問答解了心中一二疑惑，可請道長吃盞茶 ☕</p>
+      <div class="qr-row">
+        <div class="qr-box">
+          <img class="qr-wechat" alt="微信赞赏码">
+          <div class="qr-fallback" style="display:none">收款码加载失败</div>
+          <span>微信打賞</span>
+        </div>
+        <div class="qr-box">
+          <img class="qr-alipay" alt="支付宝收款码">
+          <div class="qr-fallback" style="display:none">收款码加载失败</div>
+          <span>支付寶</span>
+        </div>
+      </div>
+    </div>
+
+    <footer>道法自然 · 順遂隨緣 —— 僅供娛樂，未卜先知不如篤行</footer>
+  </div>
+
+  <!-- 底部 tab 栏 -->
+  <nav class="tabbar">
+    <button id="tab-qian" class="active" onclick="switchPage('qian')"><span class="ic">🎋</span>靈簽</button>
+    <button id="tab-bazi" onclick="switchPage('bazi')"><span class="ic">📜</span>八字</button>
+    <button id="tab-gua" onclick="switchPage('gua')"><span class="ic">🪙</span>金錢卦</button>
+    <button id="tab-yi" onclick="switchPage('yi')"><span class="ic">☯</span>易經</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+/* =========================================================================
+   数据区 —— 修改文案主要改这里
+   ========================================================================= */
+
+/* ---------- ① 六十四灵签 ----------
+   每支签：n=签号, level=签等, poem=签诗四句, jie=解签文案
+   想改签文直接编辑下面对象即可；新增/删减会自动适配。 */
+const SIGNS = [
+ {n:1,level:"上签",poem:["混沌初開第一枝","朝陽出海正當時","若求得此靈簽者","萬里前程步步梯"],jie:"此簽乃開天闢地之象。舊事已了，新局將啟，此時行事如日出東方，宜大膽向前，莫負良機。"},
+ {n:2,level:"上签",poem:["雲開月出到中天","清光萬里照山川","心頭事緒如冰釋","一片冰心對月圓"],jie:"雲散月明，积郁得解。所懼之事未必真險，靜待三五日，自然水落石出。"},
+ {n:3,level:"中签",poem:["枯木逢春發嫩芽","莫嫌枝上花開遲","春風一度遲遲到","遲到春風花更奇"],jie:"時運未至，非才不濟。眼下之事宜緩不宜急，靜養根基，春來自有花開之日。"},
+ {n:4,level:"下签",poem:["行舟偏遇逆風時","浪打船頭進退疑","且把帆蓬收一收","待他風順未為遲"],jie:"風逆不宜強行。強求則兩敗，暫退則兩全。此時守成即是進取。"},
+ {n:5,level:"上签",poem:["春水行舟風力微","一帆斜掛滿江暉","兩岸桃花看不盡","滿目春光得意歸"],jie:"風微而行穩，恰是舒心之運。所求不激進反有大成，行善積德，錦上添花。"},
+ {n:6,level:"中签",poem:["寶劍新磨鋒刃寒","未逢壯士莫輕彈","塵埃掩盡光芒在","一遇風雲便上天"],jie:"有才而未遇時，如劍在匣。廣結善緣，靜候貴人，機會一至當雷厲風行。"},
+ {n:7,level:"上签",poem:["雲中仙鶴鳴聲高","棲在蒼松第一梢","貴客相逢須著力","更宜高處望今朝"],jie:"鶴鳴於雲，貴人將現。近日留意身份高於己者之提攜，主動請教，必有所得。"},
+ {n:8,level:"下签",poem:["霧鎖山頭山鎖霧","天連水尾水連天","眼前咫尺分不辨","不若歸家且高眠"],jie:"迷霧之中不必強尋出路。所問之事信息未明，貿然動則失據，宜等待天晴。"},
+ {n:9,level:"中签",poem:["種麻得麻種豆豆","一分耕耘一分收","莫羨旁人收成早","早晚高低各自酬"],jie:"因果分明，急不得也賴不得。踏實做事，回報按期而至，與人攀比徒亂心神。"},
+ {n:10,level:"上签",poem:["玉兔東升照九州","清輝夜夜滿高樓","家門和順多添喜","更向蟾宮折桂遊"],jie:"玉兔呈祥，家宅安和。此運利於家事、學業、文書，考試求名皆有佳音。"},
+ {n:11,level:"中签",poem:["急水灘頭難泊舟","風狂浪湧使人愁","不如且向淺灣避","靜看雲帆天際遊"],jie:"急流之中先求自保。遇紛爭退一步，避其鋒芒，另擇淺灣，反得安穩。"},
+ {n:12,level:"上签",poem:["松柏同春歲月長","根深枝茂傲風霜","家中老幼皆安泰","福澤綿綿日月光"],jie:"松柏長青之象。根基穩固，家運昌隆，此簽尤利於健康、壽元與家族和睦。"},
+ {n:13,level:"下签",poem:["枯井無泉久不波","更逢天旱損禾苗","勸君節用勤修省","守得雲開見月明"],jie:"源頭水竭之時，宜省不宜費。開源節流、修身立德，熬過旱季自有泉湧。"},
+ {n:14,level:"中签",poem:["曉日初升霧未收","半明半暗照江樓","行人欲問前程事","且向光明穩步遊"],jie:"霧裡看花，明暗參半。大方向已定，細節尚有變數，抓大放小，穩步前行。"},
+ {n:15,level:"上签",poem:["金鱗豈是池中物","一遇風雲便化龍","今日風雲際會處","直上九霄第一重"],jie:"潛龍將飛，機運驟至。久伏之人近得展志之機，把握要害，一舉功成。"},
+ {n:16,level:"中签",poem:["扁舟乘浪過前灘","過得前灘又後灘","莫嘆人生行路難","一灘過了一灘寬"],jie:"難關重重，然關關能過。每過一關，本事長一分，眼界寬一寸，不必畏途。"},
+ {n:17,level:"上签",poem:["丹桂飄香月正圓","狀元歸去馬如飛","人逢喜事精神爽","月到中秋分外明"],jie:"折桂之運，功名得意。求學、求職、晉升皆有喜信，正宜酬謝師友。"},
+ {n:18,level:"下签",poem:["鏡裡恩情夢裡花","虛花鏡影總空華","勸君休向虛中取","腳踏實地自興家"],jie:"鏡花水月，虛而不實。眼前看似誘人之機，恐有浮誇之嫌，務實守拙為上。"},
+ {n:19,level:"中签",poem:["路遇險橋人指引","過橋方覺步履輕","貴人一句千金重","莫把良言當耳風"],jie:"遇險有引，貴人在側。身邊長者或直友之言雖逆耳，卻是渡橋之繩，虛心受之。"},
+ {n:20,level:"上签",poem:["福如東海壽如山","門對青山綠水間","積善之家天必佑","心田種德勝種田"],jie:"積善餘慶，福澤自來。心寬德厚者，逢凶亦化吉，此運利於安宅養生。"},
+ {n:21,level:"中签",poem:["月過十五光明少","人到中年萬事休","休字非真休腳步","養精蓄銳再從頭"],jie:"盛極將轉，正是修整之機。半途之力不可盡用，養足精神，來日再舉大事。"},
+ {n:22,level:"上签",poem:["花開花謝總有時","謝後重開花滿枝","舊事翻新逢好運","春來依舊著花枝"],jie:"舊緣復續，舊業重興。曾經放手之事，如今重拾反得佳果，勿懼從頭再來。"},
+ {n:23,level:"下签",poem:["猛虎出林傷眾物","行人急避各逃生","是非只為多開口","煩惱皆因強出頭"],jie:"林中有虎，慎言慎行。此時鋒芒畢露必招是非，收斂爪牙，明哲保身。"},
+ {n:24,level:"中签",poem:["琴瑟雖調絃未正","彈來曲調不成聲","重新調得絃音準","自有知音側耳聽"],jie:"合作有隙，需再調絃。與人共事意見相左，坦誠相商重新對齊，方能合鳴。"},
+ {n:25,level:"上签",poem:["春風桃李正芬芳","燕子雙飛繞畫梁","莫道人間無好事","好事多從勤儉來"],jie:"桃李春風，勤儉得福。此運由自身德行勤勉感召，成家立業兩相宜。"},
+ {n:26,level:"中签",poem:["行藏出入禮義恭","言必忠信自昌隆","眼前未得心休急","後福綿綿晚更豐"],jie:"先難後獲，厚積晚發。以誠信立身者眼下雖勞，後福深長，勿因小失大。"},
+ {n:27,level:"下签",poem:["口舌交通有禍殃","言語是非防暗傷","閉門不管窗前月","吩咐梅花自主張"],jie:"禍從口出之象。閒話少說，議論莫參，管住口舌，自無暗箭可傷。"},
+ {n:28,level:"中签",poem:["一片初心一片天","天心原不負心虔","但行好事休問前程事","前程自有好因緣"],jie:"心虔自有天知。不必事事盤算回報，但存善念而行，因緣自會開花。"},
+ {n:29,level:"上签",poem:["龍樓鳳閣九重城","新築沙堤宰相行","我貴我榮君莫羨","十年前是一書生"],jie:"寒窗化龍，苦盡甘來。今日之榮由昨日之勤積成，此運利於科考進取。"},
+ {n:30,level:"中签",poem:["春雷震動百蟲驚","驚起龍蛇各自奔","奔走之中分好壞","識時務者為俊英"],jie:"春雷驚蟄，變局已啟。變動之中善辨良莠，順時勢者昌，勿抱殘守缺。"},
+ {n:31,level:"上签",poem:["天開地闢結良緣","日吉時良萬事全","若得此簽非小可","人行忠正帝王宣"],jie:"天作之合，吉時已備。姻緣、合作、簽約皆宜，忠正行事，貴人自宣。"},
+ {n:32,level:"下签",poem:["潮漲潮退自有時","何必勞心枉用機","似此終朝無了局","不如守舊待便宜"],jie:"機關算盡反誤時。此運投機無益，守住舊業本分，待潮水自漲。"},
+ {n:33,level:"中签",poem:["寶鏡蒙塵光未減","拂開塵土照人明","自家面目自家見","不必尋光向外行"],jie:"明鏡在心，不假外求。所求之答案其實早有，靜心自省，拂塵即見。"},
+ {n:34,level:"上签",poem:["風恬浪靜好行舟","恰好揚帆到岸頭","更喜前程風色順","一帆直過海天秋"],jie:"風平浪靜，行舟正時。所謀之事一路順水，宜果斷推進，直達彼岸。"},
+ {n:35,level:"中签",poem:["石中藏玉少人知","剖出方知天下奇","切莫自誇藏璞美","待他匠眼識珍時"],jie:"璞玉待識，不必自售。真才實學藏得住，遇識貨之人自有公論。"},
+ {n:36,level:"下签",poem:["鶴在籠中不得飛","羽毛雖好困於機","勸君忍耐心莫躁","一朝籠破振翅歸"],jie:"被困一時，羽翼仍在。忍字當頭，韜光養晦，籠開之日正是高飛之時。"},
+ {n:37,level:"上签",poem:["一輪紅日出東方","照破千山萬水霜","凍解冰消春意動","百花齊放各爭香"],jie:"紅日驅霜，寒盡春回。久困之局頃刻冰消，諸事重新萌動，宜乘暖而行。"},
+ {n:38,level:"中签",poem:["磨磚豈得便成鏡","坐禪豈能便成佛","功夫在勤不在玄","踏實耕耘自然熟"],jie:"莫慕捷徑，功夫在勤。玄虛之巧終是一場空，笨功夫裡出真章。"},
+ {n:39,level:"上签",poem:["福祿雙全到白頭","金榜題名遂心悠","門庭煥彩人欽仰","更喜兒孫各有謀"],jie:"福祿壽全之吉簽。名成家和，長幼有序，宜趁勢惠及他人，福更绵長。"},
+ {n:40,level:"中签",poem:["秋菊逢春總不開","時花各有各花開","莫把光陰空嘆息","靜待秋深次第開"],jie:"各有其時，不必強同。與花期不同者比高低，徒增煩惱，守己待時最穩。"},
+ {n:41,level:"下签",poem:["船到江心補漏遲","事到臨頭悔恨遲","早把帆檣修整好","莫教風浪臨頭時"],jie:"防患未然之警簽。所慮之事尚未惡化，即刻修補周全，臨頭方不慌亂。"},
+ {n:42,level:"中签",poem:["月到天心處","風來水面時","一般清意味","料得少人知"],jie:"清幽自得，不必為人知。此運利於獨處進修，恬淡之中自有真味真機。"},
+ {n:43,level:"上签",poem:["昔日行船失了風","今朝又遇順風吹","翻然直過波濤去","穩坐垂綸樂自如"],jie:"失而復得，運勢回轉。前番挫折今日得償，放下執念，反得自在如意。"},
+ {n:44,level:"中签",poem:["雙魚戲水浪花翻","得食悠然失食難","取捨之間分禍福","貪多必是一場寒"],jie:"得失相連，取捨為要。貪多求全反受其寒，捨一得二，知足者常樂。"},
+ {n:45,level:"上签",poem:["好把心田種福田","一犁春雨潤新年","從來天不虧勤者","秋到倉盈滿舍前"],jie:"心田種福，春種秋收。善念勤行必有回甘，此運利於置產、進修、植福。"},
+ {n:46,level:"下签",poem:["屋漏更遭連夜雨","船遲又遇打頭風","此時最忌心頭亂","心定自然萬事通"],jie:"屋漏逢雨，運滯之時。愈亂愈錯，愈靜愈明，守定心神，風雨終有停時。"},
+ {n:47,level:"中签",poem:["登山涉水路迢迢","未到山頭意已勞","勸君且把行程歇","養足精神再舉高"],jie:"長途將半，最忌力竭硬撐。中途歇腳不是退縮，養足精神方登絕頂。"},
+ {n:48,level:"上签",poem:["錦上添花色更鮮","雪中送炭暖如綿","平生不作虧心事","半夜敲門心不驚"],jie:"行事磊落，吉神自護。心中無虧欠，處處是坦途，此運宜坦蕩作為。"},
+ {n:49,level:"中签",poem:["一枝梅向雪中開","不與群芳爭暖來","冷處精神偏耐久","春回先報一枝梅"],jie:"孤芳耐冷，自有先機。不逐熱鬧者反而先春，冷門之事或藏大機。"},
+ {n:50,level:"下签",poem:["鏡圓花好兩相宜","鏡破花殘各別離","緣分有時終有盡","勉強相守兩傷悲"],jie:"緣盡則放手，強留兩傷。此簽多應人際聚散，好聚好散，各自安好。"},
+ {n:51,level:"上签",poem:["靈雞一唱天下白","旭日騰騰出海來","黑暗盡頭天已曉","前程萬里莫疑猜"],jie:"雄雞報曉，長夜將盡。所熬之關已見曙光，起身趕路，勿再疑猜。"},
+ {n:52,level:"中签",poem:["畫餅充飢終是虛","望梅止渴豈為真","勸君收卻癡心念","實事求是自然親"],jie:"虛望不果腹。眼下的念想偏於虛幻，落回實處、動手去取方得真味。"},
+ {n:53,level:"上签",poem:["天賜平安福祿枝","家門和氣樂怡怡","人人羨我安居樂","我羨他人德行齊"],jie:"平安是福，和氣生財。此運貴在平常安穩，羨人有不如修己德。"},
+ {n:54,level:"中签",poem:["蜂采百花釀蜜忙","甜從苦處得來香","若還只羨蜜糖美","忘了花間幾度傷"],jie:"甘從苦來。旁觀人前之甜，莫忘其背後之傷，既求其甜，先受其苦。"},
+ {n:55,level:"上签",poem:["喜鵲簷前報好音","得知佳信慰身心","行人遠至傳消息","久別重逢意更深"],jie:"鵲噪傳音，佳信將至。遠人有信、久別重逢之喜，正宜聯絡故舊。"},
+ {n:56,level:"下签",poem:["平川靜水起波瀾","無事家中亦生煩","莫聽閒言搬弄語","是非到頭不久長"],jie:"靜水生波，多是閒言。謠言之火不撥自熄，不理不辯，不久自長自消。"},
+ {n:57,level:"中签",poem:["磨礱再磨功加倍","鐵杵磨針見日遲","但得工夫深似海","鐵杵何愁不成針"],jie:"功到自成，唯遲而已。急於求成者半途而廢，肯下深功者鐵杵成針。"},
+ {n:58,level:"上签",poem:["五穀豐登倉廩實","六畜興旺欄圈寬","勤儉持家家道盛","子孝孫賢福壽全"],jie:"五穀豐登之富簽。勤儉之家自得厚報，家業、健康、子息皆旺。"},
+ {n:59,level:"中签",poem:["寶劍出匣光芒射","斬斷塵緣一發中","快刀斬麻須果斷","優柔寡斷兩頭空"],jie:"當斷則斷。所懸之事宜速決，劍已出匣，遲疑反令兩頭落空。"},
+ {n:60,level:"下签",poem:["夜夢衣冠自整齊","醒來依舊布衣低","夢中好事休當真","醒起耕耘莫要迷"],jie:"好夢難憑，醒後躬行。虛幻的藍圖不可當真，動手去做才是真衣冠。"},
+ {n:61,level:"上签",poem:["青雲得路快揚鞭","直上層樓更上巔","會當水擊三千里","扶搖萬里任翱翔"],jie:"青雲直上，如鵬展翅。此運鋒頭正勁，宜放膽謀大，天高任翔。"},
+ {n:62,level:"中签",poem:["舊屋重修換新椽","未動一磚先一錢","大事欲成先備料","凡事預立則不難"],jie:"未雨綢繆，備而後動。欲舉大事先備糧草，預立者勝，臨渴掘井者難。"},
+ {n:63,level:"上签",poem:["壽星捧出蟠桃來","瑞氣盈門福自開","更得三星相拱照","添福添壽添丁財"],jie:"三星高照，福壽雙至。此簽主添丁進財、健康長壽，闔家歡慶之運。"},
+ {n:64,level:"中签",poem:["六十四簽收一簽","收簽恰似月圓圓","圓中自有虧時意","滿而不溢是真玄"],jie:"滿招損，謙受益。此為末簽，警示圓滿處更需謙沖守成，方得長圓。"}
+];
+
+/* ---------- 灵签白话解读（下标 = 签号-1，与 SIGNS 一一对应）
+   ✎ 想改白话，直接改这里每一条即可。 */
+const BAIHUA = [
+ "新的开始运气很好，做事有底气，大胆去干，别犹豫。",
+ "憋着的事快想通了，过几天自然见分晓，别自己吓自己。",
+ "现在开花还早，不是你不行，是时候没到，先打好底子。",
+ "顶风冒进容易翻车，先停下来守住现有的，就是赢。",
+ "顺水顺风的一签，稳稳当当往前走，好事自然来。",
+ "你有本事只是缺机会，多认识人，机会来了就猛干一场。",
+ "马上有贵人帮你，主动去请教比你强的人，准有收获。",
+ "眼前的事看不清就先别动，等几天雾散了再说。",
+ "种瓜得瓜种豆得豆，别跟别人比，踏实干自己的活。",
+ "家里顺利、考试文运都好的一签，好好抓住。",
+ "吵起来先退一步，避开锋芒，换个地方反而更稳。",
+ "根基牢、家运旺，健康和家里的事都不用担心。",
+ "钱紧的时候省着花、少折腾，熬过去就有转机。",
+ "方向没错但细节还在变，抓大放小，稳步走。",
+ "蛰伏的人要起飞了，机会突然来，关键一步要果断。",
+ "难关一个接一个，但都能过，每过一关你就更强。",
+ "考试、求职、升职都有好消息，是扬眉吐气的一签。",
+ "看着很美的事可能是虚的，别被吹上天的话骗了。",
+ "长辈或直性子朋友的逆耳忠言，认真听，能帮你。",
+ "心善德厚的人运气差不了，安心养家养生。",
+ "到了该休整的阶段，别硬撑，养好精神再来。",
+ "放下的事可以重新捡起来，重来反而结果更好。",
+ "管住嘴，少说闲话少出头，是非都是话多招来的。",
+ "合作有分歧很正常，坦诚把话说开，重新对齐就好。",
+ "勤快加节俭就有福，这签利成家也利立业。",
+ "现在辛苦是给以后攒福，讲诚信做人，后福很长。",
+ "祸从口出，闭门少言，没人能中伤你。",
+ "别总算计回报，心存善念做好事，缘分自然会来。",
+ "苦读多年终于熬出头，考试进取正当时。",
+ "变动开始了，看准方向再动，别抱着老一套不放。",
+ "签约、合作、姻缘都吉的好日子，堂堂正正去争取。",
+ "投机取巧没好处，守住老本行，等行情自己来。",
+ "答案其实你心里早有，静下来自己想，别到处问。",
+ "一路顺水，想做的事大胆推进，直达目标。",
+ "你是块好料，别急着自夸，等识货的人来认可。",
+ "暂时被卡住，忍住别躁，等限制一解除就能高飞。",
+ "寒冬过去了，困局瞬间化开，趁暖赶紧动起来。",
+ "别走捷径下玄功夫，笨办法肯下功夫才出真成绩。",
+ "名利双收、家庭和睦的大吉签，记得帮帮别人。",
+ "别人有别人的花期，你有你的，守住自己的节奏。",
+ "出事之前赶紧补救，现在动手还来得及。",
+ "这一签宜静不宜吵，一个人清静做事反而有收获。",
+ "上次摔的跟头这次补回来了，别再纠结，放宽心。",
+ "别贪多，舍才有得，知足的人最快乐。",
+ "心田种福，勤恳行善，买房、学习、积福都顺。",
+ "越乱越错，稳住心神，风雨总会停。",
+ "走长途走到一半最怕硬撑，歇一歇不是退缩。",
+ "行得正就不怕鬼敲门，放心大胆去做。",
+ "不凑热闹的反而先成功，冷门的事里藏着大机会。",
+ "缘分尽了就体面放手，强留只会两个人都难受。",
+ "长夜到头天要亮了，别再怀疑，起身赶路。",
+ "空想吃不饱，别做梦了，动手去干才实在。",
+ "平平安安就是大福，别光羡慕别人，修好自己的德。",
+ "别人风光的背后是辛苦，想要甜就先受苦。",
+ "好消息快到了，主动联系一下老朋友。",
+ "别理闲话，谣言不接不辩，几天自己就散。",
+ "肯下死功夫的，铁杵也能磨成针，急不得。",
+ "勤俭持家越干越旺，家业健康都好。",
+ "悬着的事快刀斩乱麻，一犹豫两头空。",
+ "梦里的好事别当真，醒过来动手干才是真的。",
+ "正当年锋头正劲，敢想敢干，天高任你飞。",
+ "想干大事先把粮草备足，有准备的人赢。",
+ "添丁进财、健康长寿的大喜之签。",
+ "越圆满越要谦虚低调，守得住才是真的圆满。"
+];
+
+/* ---------- ⑥ 收款码（内嵌 base64，离线可用） ----------
+   ✎ 换成自己的收款码：用任意“图片转 base64”工具生成 data:image/png;base64,... ，
+     整体替换下面两个字符串即可（微信/支付宝各一）。 */
+const QR_WECHAT = "data:image/png;base64,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";
+const QR_ALIPAY = "data:image/png;base64,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";
+
+/* 把内嵌收款码填进页面所有 .qr-wechat / .qr-alipay 图片 */
+(function applyQr(){
+  try{
+    document.querySelectorAll(".qr-wechat").forEach(i=>{ i.src = QR_WECHAT; });
+    document.querySelectorAll(".qr-alipay").forEach(i=>{ i.src = QR_ALIPAY; });
+  }catch(e){}
+})();
+
+/* ---------- ② 八字娱乐化解读 ----------
+   baziRead(wxCount, stems, branches) 返回解读文字，可自行扩写。 */
+const WX_NAMES = {木:"木",火:"火",土:"土",金:"金",水:"水"};
+const STEM_WX = {甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
+const BRANCH_WX = {子:"水",丑:"土",寅:"木",卯:"木",辰:"土",巳:"火",午:"火",未:"土",申:"金",酉:"金",戌:"土",亥:"水"};
+const STEMS = "甲乙丙丁戊己庚辛壬癸";
+const BRANCHES = "子丑寅卯辰巳午未申酉戌亥";
+const ZODIAC = {子:"鼠",丑:"牛",寅:"虎",卯:"兔",辰:"龍",巳:"蛇",午:"馬",未:"羊",申:"猴",酉:"雞",戌:"狗",亥:"豬"};
+const SHICHEN = ["子時 23-01","丑時 01-03","寅時 03-05","卯時 05-07","辰時 07-09","巳時 09-11",
+                 "午時 11-13","未時 13-15","申時 15-17","酉時 17-19","戌時 19-21","亥時 21-23"];
+/* 五行娱乐点评库：key = 五行, value = [优点点评, 提醒] */
+const WX_READ = {
+ 木:["性如春木，生機勃發，學新事物快，心地仁厚。","木過剛易折，遇事多變通，勿一味硬頂。"],
+ 火:["性如烈火，熱情外露，行動力強，感染力足。","火旺易急，三思而後行，控制脾氣即是修福。"],
+ 土:["性如厚土，沉穩可靠，重信守諾，耐力過人。","土厚易固，偶爾跳出舒適圈，運勢更活。"],
+ 金:["性如精金，果斷剛毅，講原則，重義氣。","金剛易脆，剛中帶柔，人際自當圓融。"],
+ 水:["性如流 水，聰慧靈動，善謀略，能屈能伸。","水多易漂，主見為錨，認準一事深耕。"]
+};
+
+/* ---------- ③ 六十四卦表（金钱卦 与 易经解读 共用） ----------
+   key：六位二进制「自上而下」，1=阳爻，0=阴爻。
+        例 111111=乾（六阳）、010100=水雷屯（上坎下震）。
+   每卦：[卦名, 卦辭(文言), 白話解讀]
+   ✎ 想改白话或卦辞，直接改第三个/第二个字符串。 */
+const GUACI = {
+ "111111":["乾為天","元亨利貞。","像天一样刚健运行不息。大顺之时，自强不息、主动进取必有成；但别太刚、别独断。"],
+ "000000":["坤為地","元亨，利牝馬之貞。","像大地一样厚德承载。宜跟随、配合、踏实做事，不抢头功反而更稳。"],
+ "010100":["水雷屯","元亨利貞，勿用有攸往。","万事开头难，像草木刚破土。先扎根、找帮手，别急着远行冒进。"],
+ "001010":["山水蒙","匪我求童蒙，童蒙求我。","迷茫不懂的阶段。放下架子多问多学，找个明白人指路，别硬猜。"],
+ "010111":["水天需","有孚，光亨，貞吉。","云在天上还没下雨。该等就等，养精蓄锐，时机到了再动手。"],
+ "111010":["天水訟","有孚窒惕，中吉終凶。","起了争执。见好就收、中途和解为吉，争到底两败俱伤。"],
+ "000010":["地水師","貞，丈人吉，無咎。","要带人干一件大事。先有纪律和计划，用对人则吉，切忌杂牌军。"],
+ "010000":["水地比","吉。原筮元永貞，無咎。","该找盟友、找靠山了。主动亲近靠谱的人，别迟疑观望。"],
+ "011111":["風天小畜","密雲不雨，自我西郊。","小有积蓄、力量还不足。宜蓄势，不宜大动作，别急着摊大摊子。"],
+ "111110":["天澤履","履虎尾，不咥人，亨。","踩着老虎尾巴走路。按规矩、讲分寸、步步谨慎，就能安然通过。"],
+ "000111":["地天泰","小往大來，吉亨。","上下通气、诸事顺畅的好时候。趁势而为，别浪费这段顺境。"],
+ "111000":["天地否","否之匪人，不利君子貞。","上下不通、事事卡壳。宜退守静等，别硬冲，否极自会泰来。"],
+ "111101":["天火同人","同人于野，亨。","和大家同心同德。开诚布公、聚拢志同道合者，合力可成大事。"],
+ "101111":["火天大有","元亨。","丰盛富足、如日中天。富而有德、肯分利给人，才能长保。"],
+ "000001":["地山謙","亨，君子有終。","山藏在地下，是谦卦。越谦越有福，功成不居的人大家才会推你上位。"],
+ "100000":["雷地豫","利建侯行師。","该高兴该顺势而动的阶段。趁兴致勃勃把事规划起来，别乐极生悲。"],
+ "110100":["澤雷隨","元亨利貞，無咎。","跟着形势走、择善而从。别死守己见，顺势而为事半功倍。"],
+ "001011":["山風蠱","元亨，利涉大川。","积弊已久该整顿了。旧账旧习惯敢于动手改，改革则吉。"],
+ "000110":["地澤臨","元亨利貞，至于八月有凶。","顺势临事、阳气渐长。以宽厚待下，大有可为；但注意盛极转衰。"],
+ "011000":["風地觀","盥而不薦，有孚顒若。","观察、观摩之象。多听多看多学，以身作则比发号施令更管用。"],
+ "101100":["火雷噬嗑","亨，利用獄。","有障碍挡路要果断清除。该硬就硬、公正处理，别和稀泥。"],
+ "001101":["山火賁","亨，小利有攸往。","装饰、包装之象。外在做漂亮之外更要修内里，质朴胜过浮华。"],
+ "001000":["山地剝","不利有攸往。","剥落衰退之势。宜守不宜攻，别在这个时候开新局。"],
+ "000100":["地雷復","亨。出入無疾，朋來無咎。","一阳来复、生机回头。走错路的赶紧回到正轨，此刻起步正当时。"],
+ "111100":["天雷無妄","元亨利貞，其匪正有眚。","守本分、不妄动就没事。投机取巧、心存侥幸必招意外之灾。"],
+ "001111":["山天大畜","利貞，不家食吉。","厚积之卦。养精蓄锐、储备本事与人脉，积累够了才能一把做大。"],
+ "001100":["山雷頤","貞吉。觀頤，自求口實。","颐养之道。管好嘴——少乱说、少乱吃，自己养好自己再谈别的。"],
+ "110011":["澤風大過","棟橈，利有攸往，亨。","非常时期行非常之事。压力已经很大了，量力而行，该改结构就改。"],
+ "010010":["坎為水","習坎，有孚，維心亨。","重重险阻。守信用、心定不慌，见招拆招，能平安过关。"],
+ "101101":["離為火","利貞，亨。畜牝牛吉。","光明亮丽之象。依附正道、表现得体就顺；忌浮夸急躁。"],
+ "110001":["澤山咸","亨，利貞，取女吉。","互相感应、以诚动人。谈感情、谈合作都宜，关键在真诚。"],
+ "100011":["雷風恆","亨，無咎，利貞。","长久坚持之象。稳住立场、别朝令夕改，把一件事做长就是本事。"],
+ "111001":["天山遯","亨，小利貞。","该退就退。形势渐不利，主动退让保存实力，退一步就是进。"],
+ "100111":["雷天大壯","利貞。","气势正盛、力量充足。越强越要守规矩，用蛮力必折。"],
+ "101000":["火地晉","康侯用錫馬蕃庶。","太阳从地面升起，晋升之象。求名求进、表现自己，正当其时。"],
+ "000101":["地火明夷","利艱貞。","光明被压在地下。收敛锋芒、装糊涂渡难关，别硬碰硬。"],
+ "011101":["風火家人","利女貞。","齐家之卦。各人守好各人的位置，把家里/团队的关系理顺，事就顺了。"],
+ "101110":["火澤睽","小事吉。","彼此看法不合。大事先放一放，从小处、从能达成一致的事做起。"],
+ "010001":["水山蹇","利西南，不利東北。","前有山后有水，进退两难。别硬闯，先修自己、找贵人借力绕过去。"],
+ "100010":["雷水解","利西南，有攸往，夙吉。","雷雨过后困难消解。抓紧把善后做完，别拖到旧问题复活。"],
+ "001110":["山澤損","有孚，元吉，無咎。","减损之卦。肯让利、肯舍弃一些，先损后得，反而是聪明账。"],
+ "011100":["風雷益","利有攸往，利涉大川。","有增益、能扩张的时候。利人利众、大胆投入，越分享越有得。"],
+ "110111":["澤天夬","揚于王庭，孚號有厲。","该做决断了。拖泥带水最伤，光明正大地把该切的关系切掉。"],
+ "111011":["天風姤","女壯，勿用取女。","意外的相遇。防微杜渐，看准了再交往，别被一时的巧合迷住。"],
+ "110000":["澤地萃","亨。王假有廟，利見大人。","聚合之象。把人气、资源聚起来共谋大事，靠诚信立住场面。"],
+ "000011":["地風升","元亨，用見大人，勿恤。","地中长木，慢慢长高。稳步往上走、求升迁，循阶梯来准成。"],
+ "110010":["澤水困","亨，貞大人吉，無咎。","被困住的时期。少说多做、守住本分等机会，困境中不失志最要紧。"],
+ "010011":["水風井","改邑不改井，無喪無得。","井养而不穷。修好自己这口井——提升本事、照顾身边人，帮人终帮己。"],
+ "110101":["澤火革","巳日乃孚，元亨利貞，悔亡。","变革之卦。时机成熟就果断改，改之前要把道理讲明白。"],
+ "101011":["風火鼎","元吉，亨。","鼎新之象。稳中求新、敬重能人，根基稳住再换花样。"],
+ "100100":["震為雷","亨。震來虩虩，笑言啞啞。","雷声连响，动荡来临。别慌，按规矩做、守住关键位就没事。"],
+ "001001":["艮為山","艮其背，不獲其身，行其庭，不見其人。","该停就停。各安其位，静下来反而是福，别瞎折腾。"],
+ "011001":["風山漸","女歸吉，利貞。","循序渐进之象。感情事业都要慢慢来，一步跨太大必出问题。"],
+ "100110":["雷澤歸妹","征凶，無攸利。","急于成事之象。名分要正、根基要实，凑合着上会有后悔。"],
+ "100101":["雷火豐","亨，王假之，勿憂宜日中。","盛大之时，如日中天。做事光明正大能长保，别忘了日中则昃。"],
+ "101001":["火山旅","小亨，旅貞吉。","出门在外之象。人在异乡要谦和低调，小事上精细点才顺。"],
+ "011011":["巽為風","小亨，利有攸往，利見大人。","如风入物，柔顺之象。多听多问、以柔办事，别硬顶。"],
+ "110110":["兌為澤","亨，利貞。","和悦相与之象。以诚相待、与朋友切磋交流，忌谄媚讨好。"],
+ "011010":["風水渙","亨，王假有廟。","涣散之象。人心易散的时候，把大家聚拢起来、提前防患。"],
+ "010110":["水澤節","亨。苦節不可貞。","节制之卦。花钱、说话、做事都要有度，但别苦節到伤身伤人。"],
+ "011110":["風澤中孚","豚魚吉，利涉大川。","诚信感通之卦。至诚相待可打动人，信誉立住事就成了。"],
+ "100001":["雷山小過","亨，利貞。可小事，不可大事。","小有过越之象。小事灵活点无妨，大事绝不可越界冒进。"],
+ "010101":["水火既濟","亨，小利貞，初吉終亂。","功成圆满之时。守成最难，越顺越要谨慎，别在终点翻车。"],
+ "101010":["火水未濟","亨。小狐汔濟，濡其尾。","事还没成、仍有变数。谨慎推进、辨清方向，终能成事。"]
+};
+
+/* =========================================================================
+   通用：页签切换
+   ========================================================================= */
+function switchPage(name){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("show"));
+  document.getElementById("page-"+name).classList.add("show");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("tab-"+name).classList.add("active");
+}
+
+/* =========================================================================
+   模块一：灵签抽签
+   ========================================================================= */
+let qianBusy = false;
+function drawQian(){
+  if(qianBusy) return;
+  qianBusy = true;
+  const box   = document.getElementById("qianResult");
+  const stick = document.getElementById("stick");
+  const btn   = document.getElementById("btnQian");
+  // 显示结果区并开始摇签动画
+  box.style.display = "block";
+  stick.classList.add("shake-anim");
+  btn.textContent = "搖 簽 中 …";
+  btn.style.opacity = .6;
+  setTimeout(()=>{
+    // 随机取一支签（改概率权重可在此扩展）
+    const s = SIGNS[Math.floor(Math.random()*SIGNS.length)];
+    stick.classList.remove("shake-anim");
+    document.getElementById("qianNo").textContent   = "第 " + cnum(s.n) + " 簽";
+    const lv = document.getElementById("qianLevel");
+    lv.textContent = s.level; lv.className = "qian-level lv-" + s.level;
+    // 签诗逐句淡入：重置动画
+    const poem = document.getElementById("qianPoem");
+    poem.innerHTML = "";
+    s.poem.forEach(line=>{
+      const d = document.createElement("div");
+      d.textContent = line; poem.appendChild(d);
+    });
+    // 解曰 + 白话解读（白话取自 BAIHUA 数组，签号-1 对应）
+    document.getElementById("qianJie").innerHTML =
+      "<b>解曰：</b>" + s.jie +
+      "<br><b style='color:var(--gold)'>白話：</b>" + (BAIHUA[s.n-1]||"") +
+      " <b>（娛樂提點，僅此而已）</b>";
+    // 记录本次签，供详批使用；永久解锁则自动展开，否则等待用户点详批按钮
+    lastSign = s;
+    document.getElementById("qianDetail").classList.remove("show");
+    if(isVip()){ renderQianDetail(); }
+    refreshDailyUI();
+    btn.textContent = "再 搖 一 簽";
+    btn.style.opacity = 1;
+    qianBusy = false;
+  }, 1600);
+}
+/* 数字转汉字（签号显示用，最多支持到99） */
+function cnum(n){
+  const d="〇一二三四五六七八九";
+  if(n<10)  return d[n];
+  if(n<100) return (n>=20?d[Math.floor(n/10)]:"")+"十"+(n%10?d[n%10]:"");
+  return ""+n;
+}
+
+/* =========================================================================
+   模块二：简易八字排盘（演示算法，非精准命理）
+   ========================================================================= */
+(function initBaziForm(){
+  const y=document.getElementById("bYear"), m=document.getElementById("bMonth"), d=document.getElementById("bDay"), h=document.getElementById("bHour");
+  for(let i=2025;i>=1940;i--){ y.add(new Option(i+"年", i)); }
+  for(let i=1;i<=12;i++){ m.add(new Option(i+"月", i)); }
+  for(let i=1;i<=31;i++){ d.add(new Option(i+"日", i)); }
+  SHICHEN.forEach((t,i)=>{ h.add(new Option(t, i)); });
+  y.value=1995; m.value=6; d.value=15; h.value=4;
+})();
+
+/* 天干地支推算（演示级：年柱按公历直取，未按立春/节气精算） */
+function calcBazi(y, mo, dd, hourIdx){
+  // 年柱
+  const yStem = STEMS[(y-4)%10], yBr = BRANCHES[(y-4)%12];
+  // 月支：按公历近似（寅=正月≈2月，每节后进一位，此处简化直接映射）
+  const mBrIndex = (mo+9)%12;               // 1月→寅,2月→卯 … 演示近似
+  const mBr = BRANCHES[mBrIndex];
+  // 月干：五虎遁 —— 年干甲己→丙寅起，乙庚→戊寅起 …
+  const dun = (yStem==="甲"||yStem==="己")?2:(yStem==="乙"||yStem==="庚")?4:(yStem==="丙"||yStem==="辛")?6:(yStem==="丁"||yStem==="壬")?8:0;
+  const mStem = STEMS[(dun+mBrIndex)%10];
+  // 日柱：以儒略日数取模（演示）
+  const a=Math.floor((14-mo)/12), yy=y+4800-a, mm2=mo+12*a-3;
+  const jdn=dd+Math.floor((153*mm2+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;
+  const dIdx=((jdn+49)%60+60)%60;
+  const dStem=STEMS[dIdx%10], dBr=BRANCHES[dIdx%12];
+  // 时柱：五鼠遁 —— 日干甲己→甲子起
+  const zidun=(dStem==="甲"||dStem==="己")?0:(dStem==="乙"||dStem==="庚")?2:(dStem==="丙"||dStem==="辛")?4:(dStem==="丁"||dStem==="壬")?6:8;
+  const hStem=STEMS[(zidun+hourIdx)%10], hBr=BRANCHES[hourIdx];
+  return [[yStem,yBr],[mStem,mBr],[dStem,dBr],[hStem,hBr]];
+}
+
+function drawBazi(){
+  const y=+document.getElementById("bYear").value, mo=+document.getElementById("bMonth").value,
+        dd=+document.getElementById("bDay").value,  hi=+document.getElementById("bHour").value;
+  const pillars=calcBazi(y,mo,dd,hi);
+  // 表格：干支 + 五行小标签 + 生肖
+  const row=document.getElementById("baziRow");
+  row.innerHTML=pillars.map(([s,b])=>{
+    const ws=STEM_WX[s], wb=BRANCH_WX[b];
+    return `<td><span class="pillar-stem">${s}<i class="wx-tag">${ws}</i></span><br>`+
+           `<span class="pillar-branch">${b}<i class="wx-tag">${wb}</i></span><br>`+
+           `<span class="wx-tag">〔${ZODIAC[b]}〕</span></td>`;
+  }).join("");
+  // 五行统计
+  const count={木:0,火:0,土:0,金:0,水:0};
+  pillars.forEach(([s,b])=>{count[STEM_WX[s]]++;count[BRANCH_WX[b]]++;});
+  const sorted=Object.entries(count).sort((a,b)=>b[1]-a[1]);
+  const strongest=sorted[0][0], weakest=sorted[sorted.length-1][0];
+  const dayStem=pillars[2][0]; // 日主
+  // 娱乐化解读（文案可改：拼装 WX_READ + 固定句式）
+  const body=document.getElementById("baziRead");
+  body.innerHTML =
+    `日主為 <b style="color:var(--red)">${dayStem}（${STEM_WX[dayStem]}）</b>，屬<b>${ZODIAC[pillars[0][1]]}</b>命。<br>`+
+    `五行之中，<b>${WX_NAMES[strongest]}</b>最旺（${strongest?count[strongest]:0}見），<b>${WX_NAMES[weakest]}</b>最弱（${count[weakest]}見）。<br>`+
+    `▲ ${WX_READ[strongest][0]}<br>▼ ${WX_READ[weakest][1]}<br>`+
+    `<span style="color:var(--qing)">總批：旺者收斂，弱者滋補，人生如四時，各有其用。（以上為遊戲文案，不構成任何命理判斷）</span>`;
+  document.getElementById("baziResult").style.display="block";
+  // 记录本次排盘，供详批使用；永久解锁则自动展开
+  lastBazi = {pillars, strongest, weakest, count, dayStem};
+  document.getElementById("baziDetail").classList.remove("show");
+  if(isVip()){ renderBaziDetail(); }
+  refreshDailyUI();
+}
+
+/* =========================================================================
+   模块三：金钱卦（六爻起卦）
+   ========================================================================= */
+let guaBusy=false, tossCount=0, bits=[];
+/* 掷三枚铜钱：1=背面（阳）,0=正面（阴）。
+   传统规则：2背=单(阳)，3背=重(老阳)，1背=拆(阴)，0背=交(老阴)。 */
+function tossCoins(){
+  return [Math.random()<0.5?1:0, Math.random()<0.5?1:0, Math.random()<0.5?1:0];
+}
+function startGua(){
+  if(guaBusy) return;
+  guaBusy=true; tossCount=0; bits=[];
+  document.getElementById("lines").innerHTML="";
+  document.getElementById("guaResult").style.display="none";
+  document.getElementById("coins").classList.add("rolling");   // 铜钱晃动动画
+  document.getElementById("btnGua").style.opacity=.6;
+  nextToss();
+}
+function nextToss(){
+  if(tossCount>=6){ finishGua(); return; }
+  const r=tossCoins(), backs=r.reduce((a,b)=>a+b,0);
+  // 爻线：单(2背)、重(3背)为阳1；拆(1背)、交(0背)为阴0
+  const yang=(backs===2||backs===3);
+  bits.unshift(yang?1:0);              // 存入高位（自下而上，unshift 到数组头）
+  const names=["初爻","二爻","三爻","四爻","五爻","上爻"];
+  const log=document.getElementById("tossLog");
+  log.textContent="第"+cnum(tossCount+1)+"擲：" + r.map(v=>v?"背":"字").join("・") +
+                  " → " + (backs===2?"單（陽）":backs===3?"重（老陽）":backs===1?"拆（陰）":"交（老陰）");
+  renderLine(names[tossCount], yang, bits.length-1);
+  tossCount++;
+  setTimeout(nextToss, 950);
+}
+/* 渲染一条爻线：阳为整线，阴为两段 */
+function renderLine(name, yang){
+  const div=document.createElement("div");
+  div.className="yao "+(yang?"yang":"yin");
+  div.innerHTML=`<span class="tag">${name}</span>`+
+    (yang?`<div class="bar"></div>`:`<div class="barwrap"><div class="bar"></div><div class="bar"></div></div>`);
+  document.getElementById("lines").appendChild(div);
+}
+function finishGua(){
+  document.getElementById("coins").classList.remove("rolling");
+  const btn=document.getElementById("btnGua");
+  btn.style.opacity=1; btn.textContent="再 起 一 卦";
+  document.getElementById("tossLog").textContent="六爻既成 ——";
+  const key=bits.join("");
+  const g=GUACI[key]||["卦象待考","","此卦不在卦表中（可於代碼 GUACI 表補充）。"];
+  document.getElementById("guaName").textContent="卦曰："+g[0];
+  document.getElementById("guaCi").innerHTML =
+    (g[1]?`<span style="color:var(--qing)">卦辭：${g[1]}</span><br>`:"") +
+    `<b style="color:var(--gold)">白話：</b>${g[2]}<br>`+
+    `<span style="font-size:12px;opacity:.7">（娛樂解讀，切勿當真）</span>`;
+  document.getElementById("guaResult").style.display="block";
+  guaBusy=false;
+}
+
+/* =========================================================================
+   模块四：易经解读（六十四卦随时查阅）
+   ========================================================================= */
+(function initYiSelect(){
+  const sel=document.getElementById("yiSelect");
+  Object.entries(GUACI).forEach(([k,v])=>{
+    sel.add(new Option(v[0], k));   // value 存二进制 key
+  });
+})();
+function renderYiLines(key, boxId){
+  const box=document.getElementById(boxId);
+  box.innerHTML="";
+  const names=["上爻","五爻","四爻","三爻","二爻","初爻"];  // key[0] 即上爻
+  key.split("").forEach((c,i)=>{
+    const div=document.createElement("div");
+    const yang=c==="1";
+    div.className="yao "+(yang?"yang":"yin");
+    div.innerHTML=`<span class="tag">${names[i]}</span>`+
+      (yang?`<div class="bar"></div>`:`<div class="barwrap"><div class="bar"></div><div class="bar"></div></div>`);
+    box.appendChild(div);
+  });
+}
+function showYi(key){
+  if(!key) return;
+  const g=GUACI[key];
+  if(!g) return;
+  document.getElementById("yiName").textContent=g[0];
+  renderYiLines(key,"yiLines");
+  document.getElementById("yiCi").innerHTML =
+    (g[1]?`<span style="color:var(--qing)">卦辭：${g[1]}</span>`:"");
+  document.getElementById("yiHua").innerHTML = "<b>白話解讀：</b>"+g[2]+
+    "<br><span style='font-size:12px;opacity:.7'>（古人觀察世事的思路，非預言，僅供娛樂）</span>";
+  document.getElementById("yiBox").style.display="block";
+  document.getElementById("yiBox").style.animation="none";
+  setTimeout(()=>document.getElementById("yiBox").style.animation="",10);
+}
+function randomYi(){
+  const keys=Object.keys(GUACI);
+  const k=keys[Math.floor(Math.random()*keys.length)];
+  document.getElementById("yiSelect").value=k;
+  showYi(k);
+  document.getElementById("yiBox").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+/* =========================================================================
+   模块五：详细命理解读 ¥1.99/次（离线诚信支付）
+   -------------------------------------------------------------------------
+   ✎ 使用说明：
+   1) 每次查看详批 ¥1.99（诚信支付：点“已支付”即解锁本次）。
+   2) 永久卡密：把 UNLOCK_CODES 改成你自己的码，可额外赠送铁粉“永久解锁”。
+   3) 收款码：内嵌 base64，改 QR_WECHAT / QR_ALIPAY 即可换码。
+   ========================================================================= */
+const UNLOCK_CODES = ["DAO9999","FUQIANG88","ZHUANQIAN","TAIJI668","WULIANG888"]; // 永久解锁码
+const VIP_KEY = "dao_vip";
+const PAID_PRICE = "1.99";   // 详批单价（✎ 改价格在这里）
+
+let lastSign = null;      // 最近一次抽到的签
+let lastBazi = null;      // 最近一次排的四柱数据
+let pendingDetail = null; // 等待付费后展开的详批 'qian' | 'bazi'
+
+function isVip(){ try{ return localStorage.getItem(VIP_KEY)==="1"; }catch(e){ return false; } }
+
+function openDetail(which){
+  if(which==="qian") renderQianDetail();
+  if(which==="bazi") renderBaziDetail();
+}
+
+/* 点击详批按钮：永久解锁→直接开；否则→付款面板（¥1.99） */
+function askUnlock(which){
+  pendingDetail = which;
+  if(isVip()){
+    openDetail(which);
+  }else{
+    const p=document.getElementById("payPanel");
+    p.classList.add("show");
+    document.getElementById("payMsg").textContent="";
+    p.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  refreshDailyUI();
+}
+
+/* 诚信支付：用户已打赏 1.99，解锁本次详批 */
+function paidThisTime(){
+  if(pendingDetail){
+    toast("感謝支持 ✔ 已解鎖本次詳批");
+    openDetail(pendingDetail);
+  }
+  document.getElementById("payPanel").classList.remove("show");
+  refreshDailyUI();
+}
+
+/* 永久卡密解锁 */
+function doUnlock(){
+  const v=(document.getElementById("codeInput").value||"").trim().toUpperCase();
+  const msg=document.getElementById("payMsg");
+  if(UNLOCK_CODES.includes(v)){
+    try{ localStorage.setItem(VIP_KEY,"1"); }catch(e){}
+    msg.style.color="#2f6b39";
+    msg.textContent="✔ 永久解鎖成功！";
+    applyVip();
+  }else if(!v){
+    msg.style.color="var(--red)"; msg.textContent="請先輸入卡密。";
+  }else{
+    msg.style.color="var(--red)"; msg.textContent="✘ 卡密不正確，請核對後重試。";
+  }
+}
+
+function applyVip(){
+  if(!isVip()){ refreshDailyUI(); return; }
+  document.getElementById("vipBadge").classList.add("show");
+  document.getElementById("payPanel").classList.remove("show");
+  refreshDailyUI();
+}
+
+/* 更新按钮文字与价格提示 */
+function refreshDailyUI(){
+  const q=document.getElementById("btnQianPay"), b=document.getElementById("btnBaziPay");
+  const label = isVip() ? "✦ 查看詳批（已永久解鎖）" : "查看詳批 · ¥"+PAID_PRICE;
+  if(q) q.textContent = label;
+  if(b) b.textContent = label;
+  document.getElementById("vipBadge").classList.toggle("show", isVip());
+  const dh=document.getElementById("dailyHint");
+  if(dh){
+    dh.textContent = isVip() ? "已永久解鎖詳批" : "詳細命理解讀 ¥"+PAID_PRICE+"/次";
+  }
+}
+
+/* 轻提示 toast */
+let toastTimer=null;
+function toast(t){
+  const el=document.getElementById("toast");
+  el.textContent=t;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove("show"), 2200);
+}
+
+/* ---------- 详批文案素材库（✎ 想改详批文案改这里） ---------- */
+const DETAIL_TEXT = {
+  上签:{
+    yun:["此簽氣勢向上，是一段適合主動出擊的時光。","運勢正在走高，該把最想做的事排進日程。","此為順勢之簽，機會明顯多於阻力。"],
+    career:["工作上容易被看見，主動接下有挑戰的任務，履歷會更好看。","適合談合作、遞提案，趁信心足時把條件一次談到位。","升遷或轉職的窗口近期打開，先把作品與說法準備好。"],
+    love:["感情宜進不宜守，喜歡就明確表態，曖昧拖久了反而散。","單身者多出門聚會，緣分往往藏在朋友的圈子裡。","有伴者可談談未來規劃，說清楚反而更穩。"],
+    money:["正財偏旺，適合把閒錢放進長期配置，別追高。","投資分批進場，手邊留三成現金應急。","用技能開源比省錢更划算，值得投入學習。"],
+    health:["精力夠用，但別用熬夜換時間，火氣容易上頭。","適合開始一項規律運動，堅持三個月就見效。","留意牙齒與睡眠品質，別把小毛病拖大。"],
+    advice:["關鍵在「敢」，但要不躁。抓住這段上升期出手，做決定時仍留一分餘地。"]
+  },
+  中签:{
+    yun:["此簽平中帶吉，事情的關鍵在於節奏而非力道。","運勢不算衝，但穩紮穩打能積出結果。","不上不下的一簽——正適合把基礎再打牢一層。"],
+    career:["先把手上的事做精，別急著跳坑換赛道。","同事關係比能力更關鍵此刻，多溝通少抱怨。","有機會但要自己去找，不會自動送上門。"],
+    love:["感情處於磨合期，別用沉默代替溝通。","單身者先把自己過好，狀態好了緣分才接得住。","有伴者少翻舊帳，多談眼前的小事。"],
+    money:["收支宜平衡，別為面子花錢。","投資先做研究再做決定，聽消息不如看數字。","可以開始一筆小額儲蓄，重在養習慣。"],
+    health:["注意作息與頸肩勞損，久坐要起來走動。","飲食規律比進補重要。","情緒起伏時，出門走走比悶著有效。"],
+    advice:["關鍵在「穩」。此簽不催你冒險，是提醒你別在該累積時圖快。"]
+  },
+  下签:{
+    yun:["此簽提醒收斂，眼下不是發力的時候。","運勢偏滯，宜守不宜攻，先保平安再談發展。","這是一張「守」字簽，靜比動有利。"],
+    career:["少出頭、多做事，避開職場是非的漩渦。","暫緩跳槽或創業的決定，等形勢明朗。","把精力放在補技能上，此時的沉澱後面會兌現。"],
+    love:["先別逼對方表態，關係需要喘息空間。","單身者不必著急，勉強來的緣分難長久。","有誤會就當面說清，別靠猜測。"],
+    money:["務必控制支出，別借貸、別槓桿。","投資宜空倉或極小額，保住本金就是賺。","先把該收的帳收回來。"],
+    health:["注意腸胃與睡眠，情緒壓力別硬扛。","天冷添衣，小病早看。","戒掉一個小習慣，身體會給你回報。"],
+    advice:["關鍵在「忍」。忍不是認輸，是把力氣留到能用的那一天；期間少說多做、守好本分。"]
+  }
+};
+
+/* 用签号做种子，保证同一支签的详批每次一致 */
+function pickBySeed(arr, seed, k){
+  if(!arr || !arr.length) return "";
+  const idx = Math.abs(seed * (k||1)) % arr.length;
+  return arr[idx];
+}
+
+/* 渲染灵签详批 */
+function renderQianDetail(){
+  const s=lastSign, box=document.getElementById("qianDetail");
+  if(!s){ box.classList.remove("show"); return; }
+  const T=DETAIL_TEXT[s.level] || DETAIL_TEXT["中签"];
+  box.innerHTML =
+    `<h4>一、總運</h4><p>${T.yun[0]}${pickBySeed(T.yun, s.n, 3)}</p>`+
+    `<h4>二、事業與學業</h4><p>${pickBySeed(T.career, s.n, 1)}</p>`+
+    `<h4>三、感情與人際</h4><p>${pickBySeed(T.love, s.n, 5)}</p>`+
+    `<h4>四、財運</h4><p>${pickBySeed(T.money, s.n, 7)}</p>`+
+    `<h4>五、健康</h4><p>${pickBySeed(T.health, s.n, 11)}</p>`+
+    `<h4>六、一語點破</h4><p>${T.advice[0]}</p>`+
+    `<h4>籤詩對應</h4><p>第${s.n}籤「${s.poem[0]}」—— 字面說景，實處說心：${BAIHUA[s.n-1]||""}</p>`+
+    `<span class="seal">詳批 · 僅供娛樂 · 不構成任何決策依據</span>`;
+  box.classList.add("show");
+}
+
+/* 渲染四柱详批 */
+function renderBaziDetail(){
+  const d=lastBazi, box=document.getElementById("baziDetail");
+  if(!d){ box.classList.remove("show"); return; }
+  const {pillars, strongest, weakest, count, dayStem} = d;
+  const wx=STEM_WX[dayStem], seed=STEMS.indexOf(dayStem)+1;
+  const POOL={
+    木:{career:["適合教育、寫作、設計、企劃等需要生長的領域。","與人打交道、帶人成長的工作會讓你更有成就感。"],
+         love:["你需要能聊得來的人，精神共鳴比外表更重要。","表達心意別太含蓄，你不說對方真的猜不到。"],
+         money:["靠專業與人脈複利賺錢，慢慢滾大比一把梭穩。","可考慮與朋友小額合作，但先把話講清楚。"],
+         health:["肝與眼睛要注意，少熬夜、少盯屏幕。"],
+         advice:["你的開運關鍵是「放」，別把所有事都攥在自己手裡。"]},
+    火:{career:["適合需要表現力與行動力的工作：銷售、內容、品牌、活動。","你適合打頭陣，但別一個人扛整場。"],
+         love:["你熱情直接，容易一開始就燒太旺，留點餘韻。","吵架時先降溫再談，火氣話最傷人。"],
+         money:["行動快是你的優勢，但別在衝動時下單。","給自己訂一條「冷靜 24 小時」消費規則。"],
+         health:["心與血壓要留意，情緒起伏比熬夜更傷。"],
+         advice:["你的開運關鍵是「緩」，慢半拍反而贏更多。"]},
+    土:{career:["適合需要耐心與信任的領域：管理、營運、地產、後勤。","你是團隊的定海神針，但別什麼都自己扛。"],
+         love:["你重承諾、夠穩，適合長跑型關係。","偶爾主動製造點新鮮感，別讓日子只剩生活。"],
+         money:["穩健累積型財運，長期定投適合你。","別為了人情做擔保。"],
+         health:["脾胃是重點，三餐定時比補品有用。"],
+         advice:["你的開運關鍵是「動」，隔段時間逼自己換個環境。"]},
+    金:{career:["適合講規則、講精度的工作：技術、審核、法務、工程。","你決斷快，但別忘帶上人情味。"],
+         love:["你講原則，容易在細節上較真，學著讓一步。","選伴侶重人品與責任感，這點你看得準。"],
+         money:["掌控開支的能力強，適合做預算與配置。","別因過度謹慎錯過合理機會。"],
+         health:["肺與呼吸道、皮膚要注意，少抽烟、少熬夜。"],
+         advice:["你的開運關鍵是「柔」，剛中帶柔，路才走得遠。"]},
+    水:{career:["適合需要謀劃與應變的工作：策略、貿易、諮詢、研究。","你想法多，缺的是落地執行的夥伴。"],
+         love:["你聰明體貼但心思深，別讓對方猜。","關係裡多一點明確的表達。"],
+         money:["你對機會敏感，但要注意別貪多、別頻繁操作。","把錢分成穩健與探索兩份。"],
+         health:["腎與腰、睡眠要注意，久坐傷身。"],
+         advice:["你的開運關鍵是「定」，認準一件事深耕，別樣樣都會一點。"]}
+  };
+  const P=POOL[wx] || POOL["土"];
+  const zhi=pillars[0][1];
+  box.innerHTML =
+    `<h4>一、性格底色（日主 ${dayStem}·${wx}）</h4>`+
+    `<p>${WX_READ[wx][0]} 生在${ZODIAC[zhi]}年，骨子裡帶著${ZODIAC[zhi]}這類屬相常被說的${zhi==="子"?"靈活善變":zhi==="丑"?"踏實耐勞":zhi==="寅"?"膽氣十足":zhi==="卯"?"溫和細膩":zhi==="辰"?"志向不小":zhi==="巳"?"心思縝密":zhi==="午"?"熱情直爽":zhi==="未"?"有耐心":zhi==="申"?"機靈好動":zhi==="酉"?"注重條理":zhi==="戌"?"講義氣":"重情念舊"}的那一面。</p>`+
+    `<h4>二、事業方向</h4><p>${P.career[0]}${P.career[1]}</p><p>五行以<b>${strongest}</b>最旺、<b>${weakest}</b>最弱：旺處是你的天賦，弱處是你要借力補的地方。</p>`+
+    `<h4>三、感情與人際</h4><p>${P.love[0]}${P.love[1]}</p>`+
+    `<h4>四、財運</h4><p>${P.money[0]}${P.money[1]}</p>`+
+    `<h4>五、健康提醒</h4><p>${P.health[0]}${WX_READ[weakest][1]}</p>`+
+    `<h4>六、一語點破</h4><p>${P.advice[0]}</p>`+
+    `<span class="seal">詳批 · 僅供娛樂 · 不構成任何命理判斷或決策依據</span>`;
+  box.classList.add("show");
+}
+
+/* 页面载入时恢复解锁状态 + 更新每日免费提示 */
+applyVip();
+refreshDailyUI();
+
+</script>
+<script>
+// PWA：https 或 localhost 下注册 service worker，实现“添加到主屏幕”+离线可用
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>

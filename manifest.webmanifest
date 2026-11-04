@@ -1,6 +1,6 @@
 {
-  "name": "道問 · 灵签排盘起卦",
-  "short_name": "道問",
+  "name": "道问 · 灵签排盘起卦",
+  "short_name": "道问",
   "description": "道家传统文化娱乐：灵签抽签、八字排盘、金钱卦、易经解读",
   "lang": "zh-CN",
   "start_url": "./index.html",

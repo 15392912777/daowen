@@ -328,7 +328,7 @@
         <button onclick="doUnlock()">解 锁</button>
       </div>
       <div class="pay-msg" id="payMsg"></div>
-      <div style="font-size:11px;color:var(--ink-soft);opacity:.75;margin-top:8px;text-align:center">（测试码 DAO9999 · 正式发布前请在 UNLOCK_CODES 改成自己的）</div>
+      <div style="font-size:11px;color:var(--ink-soft);opacity:.75;margin-top:8px;text-align:center">（付款后请向道长索取解锁码）</div>
     </div>
     <div class="vip-badge" id="vipBadge">✦ 已永久解锁详细命理解读 ✦</div>
 
@@ -635,9 +635,10 @@ function todayKey(){
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 
-/* 抽签每日限一次 */
+/* 抽签每日限一次 + 结果持久化 */
 const QIAN_DAY_KEY = "dao_qian_day";
 const QIAN_USED_KEY = "dao_qian_used";
+const QIAN_RESULT_KEY = "dao_qian_result";
 function qianAvailable(){
   try{
     return localStorage.getItem(QIAN_DAY_KEY) !== todayKey() ||
@@ -656,6 +657,41 @@ function refreshQianUI(){
   const ok = qianAvailable();
   btn.textContent = ok ? "摇 签" : "今日已抽 · 明日再来";
   btn.style.opacity = ok ? 1 : .55;
+}
+
+/* 渲染一支签的结果（抽签与刷新恢复共用） */
+function renderQianResult(s){
+  const box = document.getElementById("qianResult");
+  box.style.display = "block";
+  document.getElementById("qianNo").textContent = "第 " + cnum(s.n) + " 签";
+  const lv = document.getElementById("qianLevel");
+  lv.textContent = s.level; lv.className = "qian-level lv-" + s.level[0];
+  const poem = document.getElementById("qianPoem");
+  poem.innerHTML = "";
+  s.poem.forEach(line=>{
+    const d = document.createElement("div");
+    d.textContent = line; poem.appendChild(d);
+  });
+  document.getElementById("qianJie").innerHTML =
+    "<b>解曰：</b>" + s.jie +
+    "<br><b style='color:var(--gold)'>白话：</b>" + (BAIHUA[s.n-1]||"") +
+    " <b>（娱乐提点，仅此而已）</b>";
+  lastSign = s;
+  document.getElementById("qianDetail").classList.remove("show");
+  if(isVip()){ renderQianDetail(); }
+  refreshDailyUI();
+}
+
+/* 页面加载时恢复当天已抽的签 */
+function restoreQianResult(){
+  try{
+    const raw = localStorage.getItem(QIAN_RESULT_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(data.date !== todayKey()) return;
+    const s = SIGNS.find(x => x.n === data.n);
+    if(s) renderQianResult(s);
+  }catch(e){}
 }
 
 function drawQian(){
@@ -679,26 +715,9 @@ function drawQian(){
     // 随机取一支签（改概率权重可在此扩展）
     const s = SIGNS[Math.floor(Math.random()*SIGNS.length)];
     stick.classList.remove("shake-anim");
-    document.getElementById("qianNo").textContent = "第 " + cnum(s.n) + " 签";
-    const lv = document.getElementById("qianLevel");
-    lv.textContent = s.level; lv.className = "qian-level lv-" + s.level[0];
-    // 签诗逐句淡入
-    const poem = document.getElementById("qianPoem");
-    poem.innerHTML = "";
-    s.poem.forEach(line=>{
-      const d = document.createElement("div");
-      d.textContent = line; poem.appendChild(d);
-    });
-    // 解曰 + 白话解读
-    document.getElementById("qianJie").innerHTML =
-      "<b>解曰：</b>" + s.jie +
-      "<br><b style='color:var(--gold)'>白话：</b>" + (BAIHUA[s.n-1]||"") +
-      " <b>（娱乐提点，仅此而已）</b>";
-    // 记录本次签，供详批使用
-    lastSign = s;
-    document.getElementById("qianDetail").classList.remove("show");
-    if(isVip()){ renderQianDetail(); }
-    refreshDailyUI();
+    // 持久化签结果，刷新/切页不丢
+    try{ localStorage.setItem(QIAN_RESULT_KEY, JSON.stringify({n:s.n, date:todayKey()})); }catch(e){}
+    renderQianResult(s);
     btn.textContent = "今日已抽 · 明日再来";
     btn.style.opacity = .55;
     qianBusy = false;
@@ -719,9 +738,22 @@ function cnum(n){
   const y=document.getElementById("bYear"), m=document.getElementById("bMonth"), d=document.getElementById("bDay"), h=document.getElementById("bHour");
   for(let i=2025;i>=1940;i--){ y.add(new Option(i+"年", i)); }
   for(let i=1;i<=12;i++){ m.add(new Option(i+"月", i)); }
-  for(let i=1;i<=31;i++){ d.add(new Option(i+"日", i)); }
   SHICHEN.forEach((t,i)=>{ h.add(new Option(t, i)); });
-  y.value=1995; m.value=6; d.value=15; h.value=4;
+  y.value=1995; m.value=6; h.value=4;
+
+  /* 根据年月动态调整日期天数（含闰年 2 月），避免出现 2月30日、4月31日 */
+  function daysInMonth(yy, mm){ return new Date(yy, mm, 0).getDate(); }
+  function refreshDays(){
+    const yy=+y.value, mm=+m.value;
+    const days=daysInMonth(yy, mm);
+    const cur=Math.min(+d.value || days, days);
+    d.innerHTML="";
+    for(let i=1;i<=days;i++){ d.add(new Option(i+"日", i)); }
+    d.value=cur;
+  }
+  y.addEventListener("change", refreshDays);
+  m.addEventListener("change", refreshDays);
+  refreshDays();
 })();
 
 /* 天干地支推算（演示级：年柱按公历直取，未按立春/节气精算） */
@@ -888,10 +920,10 @@ function randomYi(){
    2) UNLOCK_CODES = 付费解锁码（¥1.99/天），可放多个、自行增删；
       VIP_CODES    = 永久解锁码（赠铁粉），输入后永久解锁。
    3) 收款码：内嵌 base64，改 QR_WECHAT / QR_ALIPAY 即可换码。
-   4) 所有码默认「测试码 DAO9999」，正式发布前务必替换成你自己的。
+   4) 解锁码已随机生成（见 UNLOCK_CODES / VIP_CODES），要换码直接改这两行。
    ========================================================================= */
-const UNLOCK_CODES = ["DAO9999","FUQIANG88","ZHUANQIAN","TAIJI668","WULIANG888"]; // 付费解锁码（¥1.99/天）
-const VIP_CODES = ["VIP8888"];                                                   // 永久解锁码（赠铁粉）
+const UNLOCK_CODES = ["PC448P8A","XQLXF7AK","GV5VX2PN","MTRJCRGT","BFBKSPFS","FXJ4P6RL"]; // 付费解锁码（¥1.99/天）
+const VIP_CODES = ["EGNEXH25"];                                                   // 永久解锁码（赠铁粉）
 const VIP_KEY = "dao_vip";
 const PASS_KEY = "dao_pass_day";  // 当天详批解锁日期 YYYY-MM-DD
 const PAID_PRICE = "1.99";        // 详批单价（✎ 改价格在这里）
@@ -1078,10 +1110,11 @@ function renderBaziDetail(){
   box.classList.add("show");
 }
 
-/* 页面载入：恢复解锁状态 + 更新抽签/详批按钮状态 */
+/* 页面载入：恢复解锁状态 + 更新抽签/详批按钮状态 + 恢复当天已抽的签 */
 applyVip();
 refreshDailyUI();
 refreshQianUI();
+restoreQianResult();
 
 </script>
 <script>
